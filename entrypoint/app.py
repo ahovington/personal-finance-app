@@ -30,6 +30,7 @@ class TransactionGenerator:
     def __init__(self):
         self.fake = Faker()
         self.categories = {
+            "Income": ["Wages", "Dividends", "Rent"],
             "Housing": ["Rent", "Mortgage", "Insurance", "Maintenance"],
             "Transportation": ["Gas", "Car Payment", "Public Transit", "Repairs"],
             "Food": ["Groceries", "Restaurants", "Coffee Shops"],
@@ -40,6 +41,7 @@ class TransactionGenerator:
             "Other": ["Gifts", "Miscellaneous"],
         }
         self.category_ranges = {
+            "Income": (500, 4000),
             "Housing": (800, 2000),
             "Transportation": (50, 500),
             "Food": (30, 200),
@@ -88,11 +90,13 @@ class BudgetPlanner:
 
     def calculate_budget_metrics(self, df: pd.DataFrame) -> dict:
         """Calculate key budget metrics from transaction data"""
-        total_spending = df["amount"].sum()
+        total_income = df[df["category"] == "Income"]["amount"].sum()
+        total_spending = df[df["category"] != "Income"]["amount"].sum()
         spending_by_category = df.groupby("category")["amount"].sum()
         daily_spending = df.groupby("created_date")["amount"].sum()
 
         return {
+            "total_income": total_income,
             "total_spending": total_spending,
             "spending_by_category": spending_by_category,
             "daily_average": total_spending / len(df["created_date"].unique()),
@@ -138,17 +142,20 @@ def create_category_card(category: str, spent: float, budget: float) -> None:
     """
 
 
-def hero_metrics(df: pd.DataFrame) -> None:
+def hero_metrics(total_income: float, total_spending: float) -> None:
+    """Display the hero metrics
+
+    Args:
+        total_income (float): The total income recieved for the period.
+        total_spending (float): The total spending for the period.
+    """
     # Display key metrics in a row
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Spending", f"${df['total_spending']:,.2f}")
-    with col2:
-        st.metric("Daily Average", f"${df['daily_average']:,.2f}")
-    with col3:
-        st.metric("Monthly Projection", f"${df['daily_average'] * 30:,.2f}")
-    with col4:
-        st.metric("Transactions", f"{len(df)}")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Income", f"${total_income:,.2f}")
+    col2.metric("Total Spending", f"${total_spending:,.2f}")
+    col3.metric("Profit/Loass", f"${(total_income - total_spending):,.2f}")
+
+    # TODO: Break spending into discretionary and non discretionary
 
 
 def spending_trend_line_chart(df: pd.DataFrame) -> None:
@@ -245,7 +252,7 @@ def budget_app(df: pd.DataFrame, planner: BudgetPlanner) -> None:
 
     # Calculate metrics
     metrics = planner.calculate_budget_metrics(df)
-    hero_metrics(metrics)
+    hero_metrics(metrics["total_income"], metrics["total_spending"])
 
     # Create two columns for the main content
     left_col, right_col = st.columns([2, 1])
