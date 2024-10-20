@@ -13,6 +13,7 @@ Can you give it some HTML styling and generate some fake data for the app.
 - Break down historical time periods by the expense category, and select the spending category to show a timeseries over the last year.
 - Generate a monthly forecast for expected expenses that can be overwritten.
 - Add the ability to add in income manually (Maybe forecast too? income is generally stable and known).
+- Add config to allow adding multiple people to the budget.
 
 # Refactor steps
 - Change the structure of the code to make it easier to change and extend.
@@ -26,3 +27,4 @@ Can you give it some HTML styling and generate some fake data for the app.
 - Start building historical income and expenditure features.
     - Change the hero metrics to total income, total expenses, difference.
     - Add spending and income to the line chart.
+    - Remove Category Budgets and convert the Progress charts to Category Actuals. Exclude income from the charts.

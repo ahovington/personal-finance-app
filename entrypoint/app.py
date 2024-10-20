@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from faker import Faker
-from config import TransactionSchema
+from config import TransactionSchema, TransactionTypes
 
 
 st.set_page_config(
@@ -20,7 +20,7 @@ st.set_page_config(
 # Date range selection
 st.sidebar.header("Date Range")
 end_date = datetime.now()
-start_date = end_date - timedelta(days=30)
+start_date = end_date - timedelta(days=365)
 start_date, end_date = st.sidebar.date_input(
     "Select Date Range", value=(start_date, end_date)
 )
@@ -71,7 +71,11 @@ class TransactionGenerator:
                     "id": self.fake.uuid4(),
                     "created_date": current_date.strftime("%Y-%m-%d"),
                     "description": f"{self.fake.company()} - {subcategory}",
-                    "type": "Income" if category == "Income" else "Purchase",
+                    "type": (
+                        TransactionTypes.INCOME
+                        if category == "Income"
+                        else TransactionTypes.PURCHASE
+                    ),
                     "category": category,
                     "subcategory": subcategory,
                     "amount": round(random.uniform(*amount_range), 2),
@@ -91,8 +95,8 @@ class BudgetPlanner:
 
     def calculate_budget_metrics(self, df: pd.DataFrame) -> dict:
         """Calculate key budget metrics from transaction data"""
-        total_income = df[df["category"] == "Income"]["amount"].sum()
-        total_spending = df[df["category"] != "Income"]["amount"].sum()
+        total_income = df[df["category"] == TransactionTypes.INCOME]["amount"].sum()
+        total_spending = df[df["category"] != TransactionTypes.INCOME]["amount"].sum()
         spending_by_category = df.groupby("category")["amount"].sum()
         daily_spending = df.groupby("created_date")["amount"].sum()
 
@@ -126,18 +130,16 @@ class BudgetPlanner:
         return forecast
 
 
-def create_category_card(category: str, spent: float, budget: float) -> None:
-    progress = (spent / budget) * 100 if budget > 0 else 0
-    color = "#23b5b5" if progress <= 100 else "#ff4b4b"
-
+def create_category_card(category: str, spent: float, percent_of_total: float) -> None:
+    color = "#ff4b4b"
     return f"""
-    <div style="background-color: black; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <div style="padding: 1rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
             <span style="font-weight: 600;">{category}</span>
-            <span>${spent:,.2f} / ${budget:,.2f}</span>
+            <span>${spent:,.2f} / {percent_of_total:,.2f}%</span>
         </div>
         <div style="background-color: #e0e0e0; border-radius: 4px; height: 8px;">
-            <div style="width: {min(progress, 100)}%; background-color: {color}; height: 100%; border-radius: 4px;"></div>
+            <div style="width: {min(percent_of_total, 100)}%; background-color: {color}; height: 100%; border-radius: 4px;"></div>
         </div>
     </div>
     """
@@ -189,64 +191,21 @@ def transaction_listing(df: pd.DataFrame) -> None:
         )
 
 
-def budget_vs_actual(df: pd.DataFrame) -> dict[str:float]:
-    # Budget vs Actual
-    st.subheader("📊 Category Budgets")
-
-    # Generate some sample budget limits
-    budget_limits = {}
-    for category in planner.categories:
-        actual_spending = df["spending_by_category"].get(category, 0)
-        suggested_budget = actual_spending * 1.1  # 10% buffer
-        budget_limits[category] = st.slider(
-            f"{category}",
-            0.0,
-            suggested_budget * 2,
-            suggested_budget,
-            step=50.0,
-            key=f"budget_{category}",
-        )
-    return budget_limits
-
-
-def budget_progress(df: pd.DataFrame, budget_limits: dict[str, float]) -> None:
-    st.markdown("### Progress")
-    for category in planner.categories:
-        spent = df["spending_by_category"].get(category, 0)
-        budget = budget_limits[category]
+def budget_progress(metrics: pd.DataFrame, categories: list[str]) -> None:
+    st.markdown("### Purchase Breakdown")
+    for category in categories:
+        if category == TransactionTypes.INCOME:
+            continue
+        spent = metrics["spending_by_category"].get(category, 0)
+        percent_of_total = (spent / metrics["total_spending"]) * 100
         st.markdown(
-            create_category_card(category, spent, budget),
+            create_category_card(category, spent, percent_of_total),
             unsafe_allow_html=True,
         )
 
 
-def export_data(
-    metrics: pd.DataFrame, transactions: pd.DataFrame, budget_limits: dict[str, float]
-):
-    # Export data button at the bottom
-    if st.button("Export Budget Report"):
-        report = {
-            "date_range": {
-                "start": start_date.strftime("%Y-%m-%d"),
-                "end": end_date.strftime("%Y-%m-%d"),
-            },
-            "metrics": {
-                "total_spending": float(metrics["total_spending"]),
-                "daily_average": float(metrics["daily_average"]),
-            },
-            "budget_limits": budget_limits,
-            "transactions": transactions,
-        }
-        st.download_button(
-            "Download Report",
-            json.dumps(report, indent=2),
-            "budget_report.json",
-            "application/json",
-        )
-
-
 def budget_app(df: pd.DataFrame, planner: BudgetPlanner) -> None:
-    st.title("💰 Budget Planner")
+    st.title("💰 Budget Planner: Actuals")
 
     # Convert to DataFrame
     df["date"] = pd.to_datetime(df["created_date"])
@@ -258,22 +217,24 @@ def budget_app(df: pd.DataFrame, planner: BudgetPlanner) -> None:
     # Create two columns for the main content
     left_col, right_col = st.columns([2, 1])
     with left_col:
-        # Spending trend
-        daily_spending = df.groupby(["date", "type"])["amount"].sum().reset_index()
-        daily_spending = daily_spending[
-            daily_spending["type"].isin(["Purchase", "Income"])
+        # Chart trend
+        trend_df = df[
+            df["type"].isin([TransactionTypes.INCOME, TransactionTypes.PURCHASE])
         ]
-        trend_line_chart(daily_spending)
+        trend_df = (
+            trend_df.groupby(["date", "type"])["amount"]
+            .sum()
+            .rolling(30)
+            .sum()
+            .reset_index()
+        )
+        trend_line_chart(trend_df)
         # Transaction list
         transactions_df = df.sort_values("amount", ascending=False).head(10)
         transaction_listing(transactions_df)
     with right_col:
-        # Budget vs Actual
-        budget_limits = budget_vs_actual(metrics)
         # Display category cards
-        budget_progress(metrics, budget_limits)
-
-    export_data(metrics, transactions_df, budget_limits)
+        budget_progress(metrics, planner.categories)
 
 
 if __name__ == "__main__":
@@ -287,5 +248,28 @@ if __name__ == "__main__":
         errors="filter",
     )
     # Initialize budget planner
+    # TODO: Remove budget planner as a class,
+    # pass the category list as an input to the budget app
     planner = BudgetPlanner(list(generator.categories.keys()))
     budget_app(transactions, planner)
+
+
+# TODO: Save for the budget page
+# def budget_vs_actual(df: pd.DataFrame, categories: list[str]) -> dict[str:float]:
+#     # Budget vs Actual
+#     st.subheader("📊 Category Budgets")
+
+#     # Generate some sample budget limits
+#     budget_limits = {}
+#     for category in categories:
+#         actual_spending = df["spending_by_category"].get(category, 0)
+#         suggested_budget = actual_spending * 1.1  # 10% buffer
+#         budget_limits[category] = st.slider(
+#             f"{category}",
+#             0.0,
+#             suggested_budget * 2,
+#             suggested_budget,
+#             step=50.0,
+#             key=f"budget_{category}",
+#         )
+#     return budget_limits
