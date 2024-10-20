@@ -71,6 +71,7 @@ class TransactionGenerator:
                     "id": self.fake.uuid4(),
                     "created_date": current_date.strftime("%Y-%m-%d"),
                     "description": f"{self.fake.company()} - {subcategory}",
+                    "type": "Income" if category == "Income" else "Purchase",
                     "category": category,
                     "subcategory": subcategory,
                     "amount": round(random.uniform(*amount_range), 2),
@@ -158,9 +159,9 @@ def hero_metrics(total_income: float, total_spending: float) -> None:
     # TODO: Break spending into discretionary and non discretionary
 
 
-def spending_trend_line_chart(df: pd.DataFrame) -> None:
-    st.subheader("📈 Spending Trend")
-    fig = px.line(df, x="date", y="amount", title=None)
+def trend_line_chart(df: pd.DataFrame) -> None:
+    st.subheader("📈 Trend")
+    fig = px.line(df, x="date", y="amount", color="type", title=None)
     fig.update_layout(
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
@@ -258,8 +259,11 @@ def budget_app(df: pd.DataFrame, planner: BudgetPlanner) -> None:
     left_col, right_col = st.columns([2, 1])
     with left_col:
         # Spending trend
-        daily_spending = df.groupby("date")["amount"].sum().reset_index()
-        spending_trend_line_chart(daily_spending)
+        daily_spending = df.groupby(["date", "type"])["amount"].sum().reset_index()
+        daily_spending = daily_spending[
+            daily_spending["type"].isin(["Purchase", "Income"])
+        ]
+        trend_line_chart(daily_spending)
         # Transaction list
         transactions_df = df.sort_values("amount", ascending=False).head(10)
         transaction_listing(transactions_df)

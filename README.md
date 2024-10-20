@@ -24,4 +24,5 @@ Can you give it some HTML styling and generate some fake data for the app.
     - Remove CSS styling or change to black background, I want to use native Streamlit functions that work with dark mode.
 
 - Start building historical income and expenditure features.
-    - Change the hero metrics to total income, total expenses, difference
+    - Change the hero metrics to total income, total expenses, difference.
+    - Add spending and income to the line chart.

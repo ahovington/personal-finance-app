@@ -28,8 +28,8 @@ load-envs:
 	export $(cat .env|xargs)
 
 
-.PHONY:run-dash
-run-dash:
+.PHONY:run-app
+run-app:
 	uv run streamlit run entrypoint/app.py
 
 .PHONY: test
