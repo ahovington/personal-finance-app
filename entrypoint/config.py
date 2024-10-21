@@ -1,6 +1,10 @@
 from decimal import Decimal
-from pandantic import BaseModel
 from enum import StrEnum
+from typing import Protocol
+
+import pandas as pd
+
+from pandantic import BaseModel
 
 
 class TransactionTypes(StrEnum):
@@ -21,3 +25,14 @@ class TransactionSchema(BaseModel):
     amount: Decimal
     account: str
     status: str
+
+
+class BudgetData(Protocol):
+
+    def get_transactions(self) -> pd.DataFrame:
+        """Returns transaction data for the budget app"""
+        ...
+
+    def validate_transactions(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Validate transactions"""
+        ...

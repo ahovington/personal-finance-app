@@ -1,14 +1,10 @@
-# app.py
-import json
-import random
 from datetime import datetime, timedelta
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from faker import Faker
-from config import TransactionSchema, TransactionTypes
-
+from config import TransactionSchema, TransactionTypes, BudgetData
+from mockdata import BudgetDataGenerator
 
 st.set_page_config(
     page_title="Budget Application",
@@ -17,81 +13,10 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
-# Date range selection
-st.sidebar.header("Date Range")
-end_date = datetime.now()
-start_date = end_date - timedelta(days=365)
-start_date, end_date = st.sidebar.date_input(
-    "Select Date Range", value=(start_date, end_date)
-)
-
-
-class TransactionGenerator:
-    def __init__(self):
-        self.fake = Faker()
-        self.categories = {
-            "Income": ["Wages", "Dividends", "Rent"],
-            "Housing": ["Rent", "Mortgage", "Insurance", "Maintenance"],
-            "Transportation": ["Gas", "Car Payment", "Public Transit", "Repairs"],
-            "Food": ["Groceries", "Restaurants", "Coffee Shops"],
-            "Utilities": ["Electricity", "Water", "Internet", "Phone"],
-            "Healthcare": ["Insurance", "Medications", "Doctor Visits"],
-            "Entertainment": ["Movies", "Streaming Services", "Hobbies"],
-            "Shopping": ["Clothing", "Electronics", "Home Goods"],
-            "Other": ["Gifts", "Miscellaneous"],
-        }
-        self.category_ranges = {
-            "Income": (500, 4000),
-            "Housing": (800, 2000),
-            "Transportation": (50, 500),
-            "Food": (30, 200),
-            "Utilities": (50, 300),
-            "Healthcare": (20, 400),
-            "Entertainment": (10, 100),
-            "Shopping": (20, 300),
-            "Other": (10, 200),
-        }
-
-    def generate_transactions(
-        self, start_date: datetime, end_date: datetime
-    ) -> pd.DataFrame:
-        transactions = []
-        current_date = start_date
-
-        while current_date <= end_date:
-            # Generate 2-5 transactions per day
-            daily_transactions = random.randint(2, 5)
-
-            for _ in range(daily_transactions):
-                category = random.choice(list(self.categories.keys()))
-                subcategory = random.choice(self.categories[category])
-                amount_range = self.category_ranges[category]
-
-                transaction = {
-                    "id": self.fake.uuid4(),
-                    "created_date": current_date.strftime("%Y-%m-%d"),
-                    "description": f"{self.fake.company()} - {subcategory}",
-                    "type": (
-                        TransactionTypes.INCOME
-                        if category == "Income"
-                        else TransactionTypes.PURCHASE
-                    ),
-                    "category": category,
-                    "subcategory": subcategory,
-                    "amount": round(random.uniform(*amount_range), 2),
-                    "account": random.choice(["Checking", "Credit Card", "Cash"]),
-                    "status": random.choice(["cleared", "pending"]),
-                }
-                transactions.append(transaction)
-
-            current_date += timedelta(days=1)
-
-        return pd.DataFrame(transactions)
-
 
 class BudgetPlanner:
-    def __init__(self, categories):
-        self.categories = categories
+    def __init__(self, budget_data: BudgetData):
+        self.categories = list(budget_data.categories.keys())
 
     def calculate_budget_metrics(self, df: pd.DataFrame) -> dict:
         """Calculate key budget metrics from transaction data"""
@@ -204,10 +129,22 @@ def budget_progress(metrics: pd.DataFrame, categories: list[str]) -> None:
         )
 
 
-def budget_app(df: pd.DataFrame, planner: BudgetPlanner) -> None:
+def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
     st.title("💰 Budget Planner: Actuals")
 
-    # Convert to DataFrame
+    # Date range selection
+    st.sidebar.header("Date Range")
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)
+    start_date, end_date = st.sidebar.date_input(
+        "Select Date Range", value=(start_date, end_date)
+    )
+
+    # Get transaction data
+    df = budget_data.get_transactions(start_date, end_date)
+
+    # date to datetime
+    # TODO: move to the budget_data class
     df["date"] = pd.to_datetime(df["created_date"])
 
     # Calculate metrics
@@ -239,19 +176,13 @@ def budget_app(df: pd.DataFrame, planner: BudgetPlanner) -> None:
 
 if __name__ == "__main__":
     # Generate sample transactions
-    generator = TransactionGenerator()
-    transactions = generator.generate_transactions(start_date, end_date)
+    generator = BudgetDataGenerator()
 
-    # validate transactions
-    df_raised_error = TransactionSchema.parse_df(
-        dataframe=pd.DataFrame(transactions),
-        errors="filter",
-    )
     # Initialize budget planner
     # TODO: Remove budget planner as a class,
     # pass the category list as an input to the budget app
-    planner = BudgetPlanner(list(generator.categories.keys()))
-    budget_app(transactions, planner)
+    planner = BudgetPlanner(generator)
+    budget_app(generator, planner)
 
 
 # TODO: Save for the budget page
