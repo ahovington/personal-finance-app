@@ -3,7 +3,6 @@ from enum import StrEnum
 from typing import Protocol
 
 import pandas as pd
-
 from pandantic import BaseModel
 
 
@@ -28,7 +27,6 @@ class TransactionSchema(BaseModel):
 
 
 class BudgetData(Protocol):
-
     def get_transactions(self) -> pd.DataFrame:
         """Returns transaction data for the budget app"""
         ...

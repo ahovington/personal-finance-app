@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from config import TransactionSchema, TransactionTypes, BudgetData
+from config import BudgetData, TransactionTypes
 from mockdata import BudgetDataGenerator
 
 st.set_page_config(
@@ -48,9 +48,7 @@ class BudgetPlanner:
         )
 
         avg_spending = monthly_spending.groupby("category")["amount"].mean()
-        forecast = pd.DataFrame(
-            {"category": avg_spending.index, "projected_amount": avg_spending.values}
-        )
+        forecast = pd.DataFrame({"category": avg_spending.index, "projected_amount": avg_spending.values})
 
         return forecast
 
@@ -136,9 +134,7 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
     st.sidebar.header("Date Range")
     end_date = datetime.now()
     start_date = end_date - timedelta(days=365)
-    start_date, end_date = st.sidebar.date_input(
-        "Select Date Range", value=(start_date, end_date)
-    )
+    start_date, end_date = st.sidebar.date_input("Select Date Range", value=(start_date, end_date))
 
     # Get transaction data
     df = budget_data.get_transactions(start_date, end_date)
@@ -155,16 +151,8 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
     left_col, right_col = st.columns([2, 1])
     with left_col:
         # Chart trend
-        trend_df = df[
-            df["type"].isin([TransactionTypes.INCOME, TransactionTypes.PURCHASE])
-        ]
-        trend_df = (
-            trend_df.groupby(["date", "type"])["amount"]
-            .sum()
-            .rolling(30)
-            .sum()
-            .reset_index()
-        )
+        trend_df = df[df["type"].isin([TransactionTypes.INCOME, TransactionTypes.PURCHASE])]
+        trend_df = trend_df.groupby(["date", "type"])["amount"].sum().rolling(30).sum().reset_index()
         trend_line_chart(trend_df)
         # Transaction list
         transactions_df = df.sort_values("amount", ascending=False).head(10)
