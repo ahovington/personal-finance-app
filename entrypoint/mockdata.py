@@ -6,7 +6,7 @@ from config import TransactionSchema, TransactionTypes
 from faker import Faker
 
 
-class BudgetDataGenerator:
+class BudgetDataMock:
     def __init__(self):
         self.fake = Faker()
         self.categories = {
@@ -54,7 +54,11 @@ class BudgetDataGenerator:
                     "id": self.fake.uuid4(),
                     "created_date": current_date.strftime("%Y-%m-%d"),
                     "description": f"{self.fake.company()} - {subcategory}",
-                    "type": (TransactionTypes.INCOME if category == "Income" else TransactionTypes.PURCHASE),
+                    "type": (
+                        TransactionTypes.INCOME
+                        if category == "Income"
+                        else TransactionTypes.PURCHASE
+                    ),
                     "category": category,
                     "subcategory": subcategory,
                     "amount": round(random.uniform(*amount_range), 2),
