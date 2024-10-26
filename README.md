@@ -28,3 +28,8 @@ Can you give it some HTML styling and generate some fake data for the app.
     - Change the hero metrics to total income, total expenses, difference.
     - Add spending and income to the line chart.
     - Remove Category Budgets and convert the Progress charts to Category Actuals. Exclude income from the charts.
+    - Make the trend a rolling period.
+    - Fix the rolling period and make the rolling days configurable in the UI.
+
+- Add additinal data sources.
+    - Add UP transaction data. (partially complete)

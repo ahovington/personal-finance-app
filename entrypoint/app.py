@@ -86,9 +86,9 @@ def hero_metrics(total_income: float, total_spending: float) -> None:
     # TODO: Break spending into discretionary and non discretionary
 
 
-def trend_line_chart(df: pd.DataFrame) -> None:
+def trend_line_chart(df: pd.DataFrame, x: str, y: str, groupby: str) -> None:
     st.subheader("📈 Trend")
-    fig = px.line(df, x="date", y="amount", color="type", title=None)
+    fig = px.line(df, x=x, y=y, color=groupby, title=None)
     fig.update_layout(
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
@@ -156,17 +156,32 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
     left_col, right_col = st.columns([2, 1])
     with left_col:
         # Chart trend
-        trend_df = df[
-            df["type"].isin([TransactionTypes.INCOME, TransactionTypes.PURCHASE])
-        ]
+        trend_df = df.copy()
+        trend_df["day"] = pd.to_datetime(trend_df["date"], utc=True).dt.date
         trend_df = (
-            trend_df.groupby(["date", "type"])["amount"]
-            .sum()
-            .rolling(30)
-            .sum()
-            .reset_index()
+            trend_df.groupby(["day", "type"]).agg({"amount": "sum"}).reset_index()
         )
-        trend_line_chart(trend_df)
+        trend_dfs = []
+        rolling_days = st.number_input("Trend Rolling Days", value=30)
+        for transaction_type in TransactionTypes:
+            # Add missing days
+            _trend_df = (
+                trend_df[trend_df["type"] == transaction_type][["day", "amount"]]
+                .set_index("day")
+                .asfreq("D")
+            )
+            # Calculate rolling sum
+            _trend_df = (
+                _trend_df.groupby(["day"])["amount"]
+                .sum()
+                .rolling(rolling_days)
+                .sum()
+                .reset_index()
+            )
+            _trend_df["type"] = transaction_type
+            trend_dfs.append(_trend_df)
+
+        trend_line_chart(pd.concat(trend_dfs), "day", "amount", "type")
         # Transaction list
         transaction_listing(
             df[df["type"] != TransactionTypes.INCOME]
