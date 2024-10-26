@@ -70,10 +70,13 @@ class BudgetDataMock:
             current_date += timedelta(days=1)
         df = pd.DataFrame(transactions)
         if validate_transactions:
-            self.validate_transactions(df)
+            self._validate_transactions(df)
         return df
 
-    def validate_transactions(self, df):
+    def get_categories(self):
+        return list(self.categories.keys())
+
+    def _validate_transactions(self, df):
         # validate transactions
         TransactionSchema.parse_df(
             dataframe=df,

@@ -11,12 +11,30 @@ from pathlib import Path
 import duckdb
 import requests
 
-from config import TransactionSchema
+from config import TransactionSchema, TransactionTypes
 
 URL = "https://api.up.com.au/api/v1"
 
 # Maximum number of transactions upbank return per 'page'.
 PAGE_SIZE = 100
+INCOME_TYPES = [
+    "Direct Credit",
+    "Osko Payment Received",
+    "Interest",
+]
+EXPENSE_TYPES = [
+    "Purchase",
+    "Direct Debit",
+    "International Purchase",
+    "BPAY Payment",
+    "EFTPOS Withdrawal",
+    "ATM Cash Out",
+    "Refund",
+    "Payment",
+    "ATM Operator Fee",
+]
+UP_ACCOUNT_ID = "70f21552-9d8d-48a5-ab54-35d34faf19e9"
+TWOUP_ACCOUNT_ID = "c176950d-d9e3-4918-ad9a-46b9cc4f9b6a"
 
 
 class TransactionStatus(StrEnum):
@@ -152,71 +170,130 @@ class BudgetDataUp:
         end_date: datetime,
         validate_transactions: bool = True,
     ):
+        df = self.conn.sql(
+            f"""
+                select
+                    id,
+                    attributes.createdAt as created_date,
+                    case
+                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                        then '{TransactionTypes.INCOME}'
+                        when attributes.transactionType in ('{"','".join(EXPENSE_TYPES)}')
+                        then '{TransactionTypes.PURCHASE}'
+                    end as type,
+                    attributes.description as description,
+                    case
+                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                        then '{TransactionTypes.INCOME}'
+                        else relationships.parentCategory.data.id
+                    end as category,
+                    case
+                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                        then '{TransactionTypes.INCOME}'
+                        else relationships.category.data.id
+                    end as subcategory,
+                    abs(attributes.amount.value::DOUBLE) as amount,
+                    case
+                        when relationships.account.data.id = '{UP_ACCOUNT_ID}'
+                        then 'UP'
+                        when relationships.account.data.id = '{TWOUP_ACCOUNT_ID}'
+                        then '2UP'
+                    end as account,
+                    attributes.status as status
+                from transactions
+                where
+                    category is not null or
+                    attributes.transactionType in ('{"','".join(INCOME_TYPES)}') 
 
-        transaction = {
-            "id": self.fake.uuid4(),
-            "created_date": current_date.strftime("%Y-%m-%d"),
-            "description": f"{self.fake.company()} - {subcategory}",
-            "type": (
-                TransactionTypes.INCOME
-                if category == "Income"
-                else TransactionTypes.PURCHASE
-            ),
-            "category": category,
-            "subcategory": subcategory,
-            "amount": round(random.uniform(*amount_range), 2),
-            "account": random.choice(["Checking", "Credit Card", "Cash"]),
-            "status": random.choice(["cleared", "pending"]),
-        }
+                order by
+                    created_date desc
+            """
+        ).df()
+        df = df.astype(
+            {
+                "id": str,
+                "created_date": str,
+                "type": str,
+                "description": str,
+                "type": str,
+                "category": str,
+                "subcategory": str,
+                "amount": float,
+                "account": str,
+                "status": str,
+            }
+        )
         if validate_transactions:
             self._validate_transactions(df)
         return df
 
-    def _validate_transactions(self, df):
+    def get_categories(self):
+        df = self.conn.sql(
+            f"""
+                select
+                    distinct
+                    relationships.category.data.id as category
+                    --relationships.parentCategory.data.id as category
+                from transactions
+                where category is not null
+            """
+        ).df()
+        return df["category"].tolist()
+
+    def _validate_transactions(self, df) -> None:
         # validate transactions
         return TransactionSchema.parse_df(
             dataframe=df,
-            errors="raise",
+            errors="filter",  # raise, filter
         )
 
 
-# print(
-#     ddb.sql(
-#         """
-#         select
-#             type,
-#             id,
-#             attributes.settledAt as settledAt,
-#             attributes.createdAt as createdAt,
-#             attributes.transactionType as transactionType,
-#             attributes.rawText as rawText,
-#             attributes.description as description,
-#             attributes.isCategorizable as isCategorizable,
-#             attributes.amount.currencyCode as currencyCode,
-#             attributes.amount.value as value,
-#             attributes.amount.valueInBaseUnits as valueInBaseUnits,
-#             attributes.note.text as noteText,
-#             attributes.performingCustomer.displayName as performingCustomer,
-#             relationships.transferAccount as transferAccount,
-#             relationships.category.data.id as category,
-#             relationships.parentCategory.data.id parentCategory,
-#             relationships.tags.data as tags
-#         from transactions
-#     """
-#     )
-# )
+if __name__ == "__main__":
+    with duckdb.connect("./db/db.duckdb") as conn:
+        print(
+            conn.sql(
+                f"""
+                select
+                        id,
+                        attributes.createdAt as created_date,
+                        attributes.description as description,
+                        case
+                            when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                            then '{TransactionTypes.INCOME}'
+                            when attributes.transactionType in ('{"','".join(EXPENSE_TYPES)}')
+                            then '{TransactionTypes.PURCHASE}'
+                        end as type,
+                        relationships.parentCategory.data.id parentCategory,
+                        relationships.category.data.id as subcategory,
+                        attributes.amount.value as amount,
+                        attributes.status as status,
+                        relationships.account.data.id as account_id,
+                        case
+                            when account_id = '{UP_ACCOUNT_ID}'
+                            then 'UP'
+                            when account_id = '{TWOUP_ACCOUNT_ID}'
+                            then '2UP'
+                        end as account
+                    from transactions
+                    where (
+                        type is not null or
+                        attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                    )
+            """
+            )
+        )
 
-# print(
-#     ddb.sql(
-#         """
-#         select
-#             attributes.createdAt as created_ts,
-#             attributes.displayName as display_name,
-#             attributes.accountType as account_type,
-#             attributes.ownershipType as ownership_type,
-#             cast(attributes.balance.value as DECIMAL) as balance
-#             cast(attributes.balance.valueInBaseUnits as DECIMAL) as balance_base_units
-#         from accounts
-#     """
-#     )
-# )
+        # print(
+        #     conn.sql(
+        #         """
+        #         select
+        #             attributes.createdAt as created_ts,
+        #             attributes.displayName as display_name,
+        #             attributes.accountType as account_type,
+        #             attributes.ownershipType as ownership_type,
+        #             cast(attributes.balance.value as DECIMAL) as balance
+        #             cast(attributes.balance.valueInBaseUnits as DECIMAL) as balance_base_units
+        #         from accounts
+        #     """
+        #     )
+        # )

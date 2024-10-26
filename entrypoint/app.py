@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -16,20 +17,19 @@ st.set_page_config(
 
 class BudgetPlanner:
     def __init__(self, budget_data: BudgetData):
-        self.categories = list(budget_data.categories.keys())
+        self.categories = budget_data.get_categories()
 
     def calculate_budget_metrics(self, df: pd.DataFrame) -> dict:
         """Calculate key budget metrics from transaction data"""
-        total_income = df[df["category"] == TransactionTypes.INCOME]["amount"].sum()
-        total_spending = df[df["category"] != TransactionTypes.INCOME]["amount"].sum()
-        spending_by_category = df.groupby("category")["amount"].sum()
+        total_income = df[df["type"] == TransactionTypes.INCOME]["amount"].sum()
+        total_spending = df[df["type"] != TransactionTypes.INCOME]["amount"].sum()
+        spending_by_category = df.groupby("subcategory")["amount"].sum().sort_values()
         daily_spending = df.groupby("created_date")["amount"].sum()
 
         return {
             "total_income": total_income,
             "total_spending": total_spending,
             "spending_by_category": spending_by_category,
-            "daily_average": total_spending / len(df["created_date"].unique()),
             "daily_spending": daily_spending,
         }
 
@@ -142,6 +142,7 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
 
     # Get transaction data
     df = budget_data.get_transactions(start_date, end_date)
+    st.dataframe(df)
 
     # date to datetime
     # TODO: move to the budget_data class
@@ -167,8 +168,11 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
         )
         trend_line_chart(trend_df)
         # Transaction list
-        transactions_df = df.sort_values("amount", ascending=False).head(10)
-        transaction_listing(transactions_df)
+        transaction_listing(
+            df[df["type"] != TransactionTypes.INCOME]
+            .sort_values("amount", ascending=False)
+            .head(10)
+        )
     with right_col:
         # Display category cards
         budget_progress(metrics, planner.categories)
