@@ -173,43 +173,68 @@ class BudgetDataUp:
         excluded_subcategories: list[str] = None,
         validate_transactions: bool = True,
     ):
+        included_accounts = self.get_accounts()
+        if account:
+            included_accounts = [account]
         df = self.conn.sql(
             f"""
+                with transform as (
+                    select
+                        id,
+                        attributes.createdAt as created_date,
+                        case
+                            when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                            then '{TransactionTypes.INCOME}'
+                            when attributes.transactionType in ('{"','".join(EXPENSE_TYPES)}')
+                            then '{TransactionTypes.PURCHASE}'
+                        end as type,
+                        attributes.description as description,
+                        case
+                            when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                            then '{TransactionTypes.INCOME}'
+                            else relationships.parentCategory.data.id
+                        end as category,
+                        case
+                            when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                            then '{TransactionTypes.INCOME}'
+                            else relationships.parentCategory.data.id
+                        end as category,
+                        case
+                            when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                            then attributes.description
+                            else relationships.category.data.id
+                        end as subcategory,
+                        abs(attributes.amount.value::DOUBLE) as amount,
+                        case
+                            when relationships.account.data.id = '{UP_ACCOUNT_ID}'
+                            then 'UP'
+                            when relationships.account.data.id = '{TWOUP_ACCOUNT_ID}'
+                            then '2UP'
+                        end as account,
+                        attributes.status as status
+                    from transactions
+                    where
+                        attributes.createdAt between '{start_date}' and '{end_date}' and
+                        (
+                            category is not null or
+                            attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                        ) and
+                        category not in ('{"','".join(excluded_categories)}') and
+                        subcategory not in ('{"','".join(excluded_subcategories)}') and
+                        account in ('{"','".join(included_accounts)}')
+                )
                 select
                     id,
-                    attributes.createdAt as created_date,
-                    case
-                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
-                        then '{TransactionTypes.INCOME}'
-                        when attributes.transactionType in ('{"','".join(EXPENSE_TYPES)}')
-                        then '{TransactionTypes.PURCHASE}'
-                    end as type,
-                    attributes.description as description,
-                    case
-                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
-                        then '{TransactionTypes.INCOME}'
-                        else relationships.parentCategory.data.id
-                    end as category,
-                    case
-                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
-                        then attributes.description
-                        else relationships.category.data.id
-                    end as subcategory,
-                    abs(attributes.amount.value::DOUBLE) as amount,
-                    case
-                        when relationships.account.data.id = '{UP_ACCOUNT_ID}'
-                        then 'UP'
-                        when relationships.account.data.id = '{TWOUP_ACCOUNT_ID}'
-                        then '2UP'
-                    end as account,
-                    attributes.status as status
-                from transactions
-                where
-                    attributes.createdAt between '{start_date}' and '{end_date}'
-                    and (
-                        category is not null or
-                        attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
-                    )
+                    created_date,
+                    type,
+                    description,
+                    type,
+                    category,
+                    subcategory,
+                    amount,
+                    account,
+                    status
+                from transform
                 order by
                     created_date desc
             """
@@ -228,18 +253,12 @@ class BudgetDataUp:
                 "status": str,
             }
         )
-        if account:
-            df = df[df["account"] == account]
-        if excluded_categories:
-            df = df[-df["category"].isin(excluded_categories)]
-        if excluded_subcategories:
-            _excluded_subcategories = [x.split(":")[1] for x in excluded_subcategories]
-            df = df[-df["subcategory"].isin(_excluded_subcategories)]
         if validate_transactions:
             self._validate_transactions(df)
         return df
 
     def get_categories(self) -> list[str]:
+        """Returns a idempptent list of categories"""
         df = self.conn.sql(
             f"""
                 select
@@ -259,6 +278,7 @@ class BudgetDataUp:
         return df["category"].tolist()
 
     def get_subcategories(self) -> list[str]:
+        """Returns a idempptent list of subcategories"""
         df = self.conn.sql(
             f"""
                 select
@@ -272,17 +292,18 @@ class BudgetDataUp:
                         when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
                         then attributes.description
                         else relationships.category.data.id
-                    end as subcategory,
-                    category ||': '|| subcategory as category_subcategory
+                    end as subcategory
+                    --category ||': '|| _subcategory as subcategory
                 from transactions
                 where
                     category is not null and
                     subcategory is not null
                 order by
-                    category
+                    category,
+                    subcategory
             """
         ).df()
-        return df["category_subcategory"].tolist()
+        return df["subcategory"].tolist()
 
     def get_accounts(self):
         return ["UP", "2UP"]

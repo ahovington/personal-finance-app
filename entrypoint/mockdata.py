@@ -84,13 +84,15 @@ class BudgetDataMock:
         return df
 
     def get_categories(self) -> list[str]:
+        """Returns a idempptent list of categories"""
         return list(self.categories.keys())
 
     def get_subcategories(self) -> list[str]:
+        """Returns a idempptent list of subcategories"""
         subcategories = []
         for value in self.categories.values():
             subcategories.append(value)
-        return subcategories
+        return subcategories.sort()
 
     def get_accounts(self) -> list[str]:
         return ["Checking", "Credit Card"]
