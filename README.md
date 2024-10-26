@@ -34,4 +34,6 @@ Can you give it some HTML styling and generate some fake data for the app.
     - Purchase breakdown, ability to change from category to subcategory.
 
 - Add additinal data sources.
-    - Add UP transaction data. (partially complete)
+    - Add UP transaction data. (partially complete).
+    - Add dropdown to select from accounts.
+    - Implement the date range for UP.

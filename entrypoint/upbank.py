@@ -168,6 +168,7 @@ class BudgetDataUp:
         self,
         start_date: datetime,
         end_date: datetime,
+        account: str = None,
         validate_transactions: bool = True,
     ):
         df = self.conn.sql(
@@ -202,9 +203,11 @@ class BudgetDataUp:
                     attributes.status as status
                 from transactions
                 where
-                    category is not null or
-                    attributes.transactionType in ('{"','".join(INCOME_TYPES)}') 
-
+                    attributes.createdAt between '{start_date}' and '{end_date}'
+                    and (
+                        category is not null or
+                        attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                    )
                 order by
                     created_date desc
             """
@@ -225,6 +228,8 @@ class BudgetDataUp:
         )
         if validate_transactions:
             self._validate_transactions(df)
+        if account:
+            return df[df["account"] == account]
         return df
 
     def get_categories(self):
@@ -239,6 +244,9 @@ class BudgetDataUp:
             """
         ).df()
         return df["category"].tolist()
+
+    def get_accounts(self):
+        return ["UP", "2UP"]
 
     def _validate_transactions(self, df) -> None:
         # validate transactions

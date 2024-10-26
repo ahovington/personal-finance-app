@@ -35,6 +35,10 @@ class BudgetData(Protocol):
         """Returns a list of the transaction categories"""
         ...
 
+    def get_accounts(self) -> list[str]:
+        """Returns a list of the accounts available in the data source"""
+        ...
+
     def _validate_transactions(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate transactions"""
         ...

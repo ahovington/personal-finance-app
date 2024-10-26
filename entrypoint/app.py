@@ -92,7 +92,7 @@ def hero_metrics(total_income: float, total_spending: float) -> None:
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Income", f"${total_income:,.2f}")
     col2.metric("Total Spending", f"${total_spending:,.2f}")
-    col3.metric("Profit/Loass", f"${(total_income - total_spending):,.2f}")
+    col3.metric("Profit/Loss", f"${(total_income - total_spending):,.2f}")
 
     # TODO: Break spending into discretionary and non discretionary
 
@@ -145,15 +145,18 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
     st.title("💰 Budget Planner: Actuals")
 
     # Date range selection
-    st.sidebar.header("Date Range")
+    st.sidebar.header("Budget Filters")
     end_date = datetime.now()
     start_date = end_date - timedelta(days=365)
-    start_date, end_date = st.sidebar.date_input(
-        "Select Date Range", value=(start_date, end_date)
-    )
-
+    try:
+        start_date, end_date = st.sidebar.date_input(
+            "Select Date Range", value=(start_date, end_date)
+        )
+    except ValueError:
+        st.warning("Select start and end date from the date range in the sidebar.")
     # Get transaction data
-    df = budget_data.get_transactions(start_date, end_date)
+    account = st.sidebar.selectbox("Account", budget_data.get_accounts(), None)
+    df = budget_data.get_transactions(start_date, end_date, account)
 
     # date to datetime
     # TODO: move to the budget_data class

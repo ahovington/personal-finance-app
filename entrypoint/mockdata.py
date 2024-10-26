@@ -36,6 +36,7 @@ class BudgetDataMock:
         self,
         start_date: datetime,
         end_date: datetime,
+        account: str = None,
         validate_transactions: bool = True,
     ) -> pd.DataFrame:
         transactions = []
@@ -62,7 +63,7 @@ class BudgetDataMock:
                     "category": category,
                     "subcategory": subcategory,
                     "amount": round(random.uniform(*amount_range), 2),
-                    "account": random.choice(["Checking", "Credit Card", "Cash"]),
+                    "account": random.choice(["Checking", "Credit Card"]),
                     "status": random.choice(["cleared", "pending"]),
                 }
                 transactions.append(transaction)
@@ -71,10 +72,15 @@ class BudgetDataMock:
         df = pd.DataFrame(transactions)
         if validate_transactions:
             self._validate_transactions(df)
+        if account:
+            return df[df["account"] == account]
         return df
 
-    def get_categories(self):
+    def get_categories(self) -> list[str]:
         return list(self.categories.keys())
+
+    def get_accounts(self) -> list[str]:
+        return ["Checking", "Credit Card"]
 
     def _validate_transactions(self, df):
         # validate transactions
