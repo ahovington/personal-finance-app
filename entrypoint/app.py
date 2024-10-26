@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from config import TransactionTypes, BudgetData
+from config import BudgetData, TransactionTypes
 from mockdata import BudgetDataMock
 
 st.set_page_config(
@@ -16,38 +15,15 @@ st.set_page_config(
 
 
 class BudgetPlanner:
-
     def calculate_budget_metrics(self, df: pd.DataFrame) -> dict:
         """Calculate key budget metrics from transaction data"""
         total_income = df[df["type"] == TransactionTypes.INCOME]["amount"].sum()
         total_spending = df[df["type"] == TransactionTypes.PURCHASE]["amount"].sum()
-        spending_by_category = (
-            df[df["type"] == TransactionTypes.PURCHASE]
-            .groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        spending_by_subcategory = (
-            df[df["type"] == TransactionTypes.PURCHASE]
-            .groupby(["category", "subcategory"])["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        spending_by_subcategory.index = spending_by_subcategory.index.map(
-            "{0[0]}: {0[1]}".format
-        )
-        income_by_category = (
-            df[df["type"] == TransactionTypes.INCOME]
-            .groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        income_by_subcategory = (
-            df[df["type"] == TransactionTypes.INCOME]
-            .groupby("subcategory")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
+        spending_by_category = df[df["type"] == TransactionTypes.PURCHASE].groupby("category")["amount"].sum().sort_values(ascending=False)
+        spending_by_subcategory = df[df["type"] == TransactionTypes.PURCHASE].groupby(["category", "subcategory"])["amount"].sum().sort_values(ascending=False)
+        spending_by_subcategory.index = spending_by_subcategory.index.map("{0[0]}: {0[1]}".format)
+        income_by_category = df[df["type"] == TransactionTypes.INCOME].groupby("category")["amount"].sum().sort_values(ascending=False)
+        income_by_subcategory = df[df["type"] == TransactionTypes.INCOME].groupby("subcategory")["amount"].sum().sort_values(ascending=False)
         return {
             "total_income": total_income,
             "total_spending": total_spending,
@@ -119,9 +95,7 @@ def transaction_listing(df: pd.DataFrame) -> None:
         )
 
 
-def category_breakdown(
-    heading: str, spending_categories: dict[str, float], total_spending: float
-) -> None:
+def category_breakdown(heading: str, spending_categories: dict[str, float], total_spending: float) -> None:
     st.markdown(f"### {heading}")
     for category, spending in spending_categories.items():
         percent_of_total = (spending / total_spending) * 100
@@ -140,25 +114,17 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
     end_date = datetime.now()
     start_date = end_date - timedelta(days=365)
     try:
-        start_date, end_date = st.sidebar.date_input(
-            "Select Date Range", value=(start_date, end_date)
-        )
+        start_date, end_date = st.sidebar.date_input("Select Date Range", value=(start_date, end_date))
     except ValueError:
         st.warning("Select start and end date from the date range in the sidebar.")
 
     # Other transaction filters
     account = st.sidebar.selectbox("Account", budget_data.get_accounts(), None)
-    excluded_categories = st.sidebar.multiselect(
-        "Exclude categories", budget_data.get_categories()
-    )
-    excluded_subcategories = st.sidebar.multiselect(
-        "Exclude subcategories", budget_data.get_subcategories()
-    )
+    excluded_categories = st.sidebar.multiselect("Exclude categories", budget_data.get_categories())
+    excluded_subcategories = st.sidebar.multiselect("Exclude subcategories", budget_data.get_subcategories())
 
     # Get transaction data
-    df = budget_data.get_transactions(
-        start_date, end_date, account, excluded_categories, excluded_subcategories
-    )
+    df = budget_data.get_transactions(start_date, end_date, account, excluded_categories, excluded_subcategories)
 
     # date to datetime
     # TODO: move to the budget_data class
@@ -174,51 +140,25 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
         # Chart trend
         trend_df = df.copy()
         trend_df["day"] = pd.to_datetime(trend_df["date"], utc=True).dt.date
-        trend_df = (
-            trend_df.groupby(["day", "type"]).agg({"amount": "sum"}).reset_index()
-        )
+        trend_df = trend_df.groupby(["day", "type"]).agg({"amount": "sum"}).reset_index()
         trend_dfs = []
         rolling_days = st.number_input("Trend Rolling Days", value=30)
         for transaction_type in TransactionTypes:
             # Add missing days
-            _trend_df = (
-                trend_df[trend_df["type"] == transaction_type][["day", "amount"]]
-                .set_index("day")
-                .asfreq("D")
-            )
+            _trend_df = trend_df[trend_df["type"] == transaction_type][["day", "amount"]].set_index("day").asfreq("D")
             # Calculate rolling sum
-            _trend_df = (
-                _trend_df.groupby(["day"])["amount"]
-                .sum()
-                .rolling(rolling_days)
-                .sum()
-                .reset_index()
-            )
+            _trend_df = _trend_df.groupby(["day"])["amount"].sum().rolling(rolling_days).sum().reset_index()
             _trend_df["type"] = transaction_type
             trend_dfs.append(_trend_df)
 
         trend_line_chart(pd.concat(trend_dfs), "day", "amount", "type")
         # Transaction list
-        transaction_listing(
-            df[df["type"] != TransactionTypes.INCOME]
-            .sort_values("amount", ascending=False)
-            .head(10)
-        )
+        transaction_listing(df[df["type"] != TransactionTypes.INCOME].sort_values("amount", ascending=False).head(10))
     with right_col:
         # Display category cards
-        transaction_group = st.selectbox(
-            "Pick transaction grouping", ["Category", "Subcategory"]
-        )
-        purchase_group_metrics = (
-            metrics["spending_by_category"]
-            if transaction_group == "Category"
-            else metrics["spending_by_subcategory"]
-        )
-        income_group_metrics = (
-            metrics["income_by_category"]
-            if transaction_group == "Category"
-            else metrics["income_by_subcategory"]
-        )
+        transaction_group = st.selectbox("Pick transaction grouping", ["Category", "Subcategory"])
+        purchase_group_metrics = metrics["spending_by_category"] if transaction_group == "Category" else metrics["spending_by_subcategory"]
+        income_group_metrics = metrics["income_by_category"] if transaction_group == "Category" else metrics["income_by_subcategory"]
         category_breakdown(
             "Income Breakdown",
             income_group_metrics,

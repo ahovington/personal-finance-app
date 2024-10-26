@@ -10,7 +10,6 @@ from pathlib import Path
 
 import duckdb
 import requests
-
 from config import TransactionSchema, TransactionTypes
 
 URL = "https://api.up.com.au/api/v1"
@@ -120,10 +119,7 @@ class UpbankClient:
 
 
 class BudgetDataUp:
-
-    def __init__(
-        self, api_client: UpbankClient, database_connection: str = "./db/db.duckdb"
-    ):
+    def __init__(self, api_client: UpbankClient, database_connection: str = "./db/db.duckdb"):
         self.client = api_client
         self.conn = duckdb.connect(database=Path(database_connection), read_only=False)
 
@@ -228,7 +224,6 @@ class BudgetDataUp:
                     created_date,
                     type,
                     description,
-                    type,
                     category,
                     subcategory,
                     amount,
@@ -245,7 +240,6 @@ class BudgetDataUp:
                 "created_date": str,
                 "type": str,
                 "description": str,
-                "type": str,
                 "category": str,
                 "subcategory": str,
                 "amount": float,

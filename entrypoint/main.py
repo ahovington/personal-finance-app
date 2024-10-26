@@ -1,9 +1,8 @@
 import os
 
-from mockdata import BudgetDataMock
-from upbank import UpbankClient, BudgetDataUp
 from app import BudgetPlanner, budget_app
-
+from mockdata import BudgetDataMock
+from upbank import BudgetDataUp, UpbankClient
 
 DATABASE_CONNECTION = "./db/db.duckdb"
 UPBANK_TOKEN = os.getenv("UPBANK_TOKEN")
