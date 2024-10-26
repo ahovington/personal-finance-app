@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Protocol
@@ -27,12 +28,24 @@ class TransactionSchema(BaseModel):
 
 
 class BudgetData(Protocol):
-    def get_transactions(self) -> pd.DataFrame:
+    def get_transactions(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        account: str = None,
+        excluded_categories: list[str] = None,
+        excluded_subcategories: list[str] = None,
+        validate_transactions: bool = True,
+    ) -> pd.DataFrame:
         """Returns transaction data for the budget app"""
         ...
 
     def get_categories(self) -> list[str]:
         """Returns a list of the transaction categories"""
+        ...
+
+    def get_subcategories(self) -> list[str]:
+        """Returns a list of the transaction subcategories"""
         ...
 
     def get_accounts(self) -> list[str]:

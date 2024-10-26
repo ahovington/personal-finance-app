@@ -14,5 +14,5 @@ if not IS_MOCK_DATA:
     client = UpbankClient(os.getenv("UPBANK_TOKEN"))
     generator = BudgetDataUp(client, DATABASE_CONNECTION)
 
-planner = BudgetPlanner(generator)
+planner = BudgetPlanner()
 budget_app(generator, planner)

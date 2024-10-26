@@ -37,6 +37,8 @@ class BudgetDataMock:
         start_date: datetime,
         end_date: datetime,
         account: str = None,
+        excluded_categories: list[str] = None,
+        excluded_subcategories: list[str] = None,
         validate_transactions: bool = True,
     ) -> pd.DataFrame:
         transactions = []
@@ -70,14 +72,25 @@ class BudgetDataMock:
 
             current_date += timedelta(days=1)
         df = pd.DataFrame(transactions)
+        if account:
+            df = df[df["account"] == account]
+        if excluded_categories:
+            df = df[-df["category"].isin(excluded_categories)]
+        if excluded_subcategories:
+            _excluded_subcategories = [x.split(":")[1] for x in excluded_subcategories]
+            df = df[-df["subcategory"].isin(_excluded_subcategories)]
         if validate_transactions:
             self._validate_transactions(df)
-        if account:
-            return df[df["account"] == account]
         return df
 
     def get_categories(self) -> list[str]:
         return list(self.categories.keys())
+
+    def get_subcategories(self) -> list[str]:
+        subcategories = []
+        for value in self.categories.values():
+            subcategories.append(value)
+        return subcategories
 
     def get_accounts(self) -> list[str]:
         return ["Checking", "Credit Card"]

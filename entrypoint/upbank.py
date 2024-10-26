@@ -169,6 +169,8 @@ class BudgetDataUp:
         start_date: datetime,
         end_date: datetime,
         account: str = None,
+        excluded_categories: list[str] = None,
+        excluded_subcategories: list[str] = None,
         validate_transactions: bool = True,
     ):
         df = self.conn.sql(
@@ -190,7 +192,7 @@ class BudgetDataUp:
                     end as category,
                     case
                         when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
-                        then '{TransactionTypes.INCOME}'
+                        then attributes.description
                         else relationships.category.data.id
                     end as subcategory,
                     abs(attributes.amount.value::DOUBLE) as amount,
@@ -226,24 +228,61 @@ class BudgetDataUp:
                 "status": str,
             }
         )
+        if account:
+            df = df[df["account"] == account]
+        if excluded_categories:
+            df = df[-df["category"].isin(excluded_categories)]
+        if excluded_subcategories:
+            _excluded_subcategories = [x.split(":")[1] for x in excluded_subcategories]
+            df = df[-df["subcategory"].isin(_excluded_subcategories)]
         if validate_transactions:
             self._validate_transactions(df)
-        if account:
-            return df[df["account"] == account]
         return df
 
-    def get_categories(self):
+    def get_categories(self) -> list[str]:
         df = self.conn.sql(
             f"""
                 select
                     distinct
-                    relationships.category.data.id as category
-                    --relationships.parentCategory.data.id as category
+                    case
+                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                        then '{TransactionTypes.INCOME}'
+                        else relationships.parentCategory.data.id
+                    end as category
                 from transactions
-                where category is not null
+                where
+                    category is not null
+                order by
+                    category
             """
         ).df()
         return df["category"].tolist()
+
+    def get_subcategories(self) -> list[str]:
+        df = self.conn.sql(
+            f"""
+                select
+                    distinct
+                    case
+                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                        then '{TransactionTypes.INCOME}'
+                        else relationships.parentCategory.data.id
+                    end as category,
+                    case
+                        when attributes.transactionType in ('{"','".join(INCOME_TYPES)}')
+                        then attributes.description
+                        else relationships.category.data.id
+                    end as subcategory,
+                    category ||': '|| subcategory as category_subcategory
+                from transactions
+                where
+                    category is not null and
+                    subcategory is not null
+                order by
+                    category
+            """
+        ).df()
+        return df["category_subcategory"].tolist()
 
     def get_accounts(self):
         return ["UP", "2UP"]

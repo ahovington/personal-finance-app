@@ -16,54 +16,46 @@ st.set_page_config(
 
 
 class BudgetPlanner:
-    def __init__(self, budget_data: BudgetData):
-        self.categories = budget_data.get_categories()
 
     def calculate_budget_metrics(self, df: pd.DataFrame) -> dict:
         """Calculate key budget metrics from transaction data"""
         total_income = df[df["type"] == TransactionTypes.INCOME]["amount"].sum()
-        total_spending = df[df["type"] != TransactionTypes.INCOME]["amount"].sum()
+        total_spending = df[df["type"] == TransactionTypes.PURCHASE]["amount"].sum()
         spending_by_category = (
-            df.groupby("category")["amount"].sum().sort_values(ascending=False)
+            df[df["type"] == TransactionTypes.PURCHASE]
+            .groupby("category")["amount"]
+            .sum()
+            .sort_values(ascending=False)
         )
         spending_by_subcategory = (
-            df.groupby(["category", "subcategory"])["amount"]
+            df[df["type"] == TransactionTypes.PURCHASE]
+            .groupby(["category", "subcategory"])["amount"]
             .sum()
             .sort_values(ascending=False)
         )
         spending_by_subcategory.index = spending_by_subcategory.index.map(
             "{0[0]}: {0[1]}".format
         )
-        daily_spending = df.groupby("created_date")["amount"].sum()
-
+        income_by_category = (
+            df[df["type"] == TransactionTypes.INCOME]
+            .groupby("category")["amount"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+        income_by_subcategory = (
+            df[df["type"] == TransactionTypes.INCOME]
+            .groupby("subcategory")["amount"]
+            .sum()
+            .sort_values(ascending=False)
+        )
         return {
             "total_income": total_income,
             "total_spending": total_spending,
             "spending_by_category": spending_by_category,
             "spending_by_subcategory": spending_by_subcategory,
-            "daily_spending": daily_spending,
+            "income_by_category": income_by_category,
+            "income_by_subcategory": income_by_subcategory,
         }
-
-    def generate_spending_forecast(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Generate spending forecast based on historical data"""
-        monthly_spending = (
-            df.groupby(
-                [
-                    pd.to_datetime(df["created_date"]).dt.year,
-                    pd.to_datetime(df["created_date"]).dt.month,
-                    "category",
-                ]
-            )["amount"]
-            .sum()
-            .reset_index()
-        )
-
-        avg_spending = monthly_spending.groupby("category")["amount"].mean()
-        forecast = pd.DataFrame(
-            {"category": avg_spending.index, "projected_amount": avg_spending.values}
-        )
-
-        return forecast
 
 
 def create_category_card(category: str, spent: float, percent_of_total: float) -> None:
@@ -127,13 +119,11 @@ def transaction_listing(df: pd.DataFrame) -> None:
         )
 
 
-def budget_progress(
-    spending_categories: dict[str, float], total_spending: float
+def category_breakdown(
+    heading: str, spending_categories: dict[str, float], total_spending: float
 ) -> None:
-    st.markdown("### Purchase Breakdown")
+    st.markdown(f"### {heading}")
     for category, spending in spending_categories.items():
-        if TransactionTypes.INCOME in category:
-            continue
         percent_of_total = (spending / total_spending) * 100
         st.markdown(
             create_category_card(category, spending, percent_of_total),
@@ -144,6 +134,7 @@ def budget_progress(
 def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
     st.title("💰 Budget Planner: Actuals")
 
+    ## Config for sidebar
     # Date range selection
     st.sidebar.header("Budget Filters")
     end_date = datetime.now()
@@ -154,13 +145,24 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
         )
     except ValueError:
         st.warning("Select start and end date from the date range in the sidebar.")
-    # Get transaction data
+
+    # Other transaction filters
     account = st.sidebar.selectbox("Account", budget_data.get_accounts(), None)
-    df = budget_data.get_transactions(start_date, end_date, account)
+    excluded_categories = st.sidebar.multiselect(
+        "Exclude categories", budget_data.get_categories()
+    )
+    excluded_subcategories = st.sidebar.multiselect(
+        "Exclude subcategories", budget_data.get_subcategories()
+    )
+
+    # Get transaction data
+    df = budget_data.get_transactions(
+        start_date, end_date, account, excluded_categories, excluded_subcategories
+    )
 
     # date to datetime
     # TODO: move to the budget_data class
-    df["date"] = pd.to_datetime(df["created_date"])
+    df["date"] = pd.to_datetime(df["created_date"], utc=True)
 
     # Calculate metrics
     metrics = planner.calculate_budget_metrics(df)
@@ -207,13 +209,24 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
         transaction_group = st.selectbox(
             "Pick transaction grouping", ["Category", "Subcategory"]
         )
-        transaction_group_metrics = (
+        purchase_group_metrics = (
             metrics["spending_by_category"]
             if transaction_group == "Category"
             else metrics["spending_by_subcategory"]
         )
-        budget_progress(
-            transaction_group_metrics,
+        income_group_metrics = (
+            metrics["income_by_category"]
+            if transaction_group == "Category"
+            else metrics["income_by_subcategory"]
+        )
+        category_breakdown(
+            "Income Breakdown",
+            income_group_metrics,
+            metrics["total_income"],
+        )
+        category_breakdown(
+            "Purchase Breakdown",
+            purchase_group_metrics,
             metrics["total_spending"],
         )
 
@@ -225,7 +238,7 @@ if __name__ == "__main__":
     # Initialize budget planner
     # TODO: Remove budget planner as a class,
     # pass the category list as an input to the budget app
-    planner = BudgetPlanner(generator)
+    planner = BudgetPlanner()
     budget_app(generator, planner)
 
 

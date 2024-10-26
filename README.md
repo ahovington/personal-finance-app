@@ -9,7 +9,8 @@ Can you give it some HTML styling and generate some fake data for the app.
 ```
 
 # Features to build
-- Select historical time periods, month, quarter and year (financial and calendar) to show acutal income and expenses over the period.
+- Select historical time periods, month, quarter and year (financial and calendar) to show acutal income and expenses over the period. (COMPLETE)
+- Remove certain categories and subcategories from expenses and income.
 - Break down historical time periods by the expense category, and select the spending category to show a timeseries over the last year.
 - Generate a monthly forecast for expected expenses that can be overwritten.
 - Add the ability to add in income manually (Maybe forecast too? income is generally stable and known).
@@ -32,6 +33,7 @@ Can you give it some HTML styling and generate some fake data for the app.
     - Fix the rolling period and make the rolling days configurable in the UI.
     - Purchase breakdown, Order categories by highest spend.
     - Purchase breakdown, ability to change from category to subcategory.
+    - Add category breakdown of income
 
 - Add additinal data sources.
     - Add UP transaction data. (partially complete).
