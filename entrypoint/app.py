@@ -23,13 +23,24 @@ class BudgetPlanner:
         """Calculate key budget metrics from transaction data"""
         total_income = df[df["type"] == TransactionTypes.INCOME]["amount"].sum()
         total_spending = df[df["type"] != TransactionTypes.INCOME]["amount"].sum()
-        spending_by_category = df.groupby("subcategory")["amount"].sum().sort_values()
+        spending_by_category = (
+            df.groupby("category")["amount"].sum().sort_values(ascending=False)
+        )
+        spending_by_subcategory = (
+            df.groupby(["category", "subcategory"])["amount"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+        spending_by_subcategory.index = spending_by_subcategory.index.map(
+            "{0[0]}: {0[1]}".format
+        )
         daily_spending = df.groupby("created_date")["amount"].sum()
 
         return {
             "total_income": total_income,
             "total_spending": total_spending,
             "spending_by_category": spending_by_category,
+            "spending_by_subcategory": spending_by_subcategory,
             "daily_spending": daily_spending,
         }
 
@@ -116,15 +127,16 @@ def transaction_listing(df: pd.DataFrame) -> None:
         )
 
 
-def budget_progress(metrics: pd.DataFrame, categories: list[str]) -> None:
+def budget_progress(
+    spending_categories: dict[str, float], total_spending: float
+) -> None:
     st.markdown("### Purchase Breakdown")
-    for category in categories:
-        if category == TransactionTypes.INCOME:
+    for category, spending in spending_categories.items():
+        if TransactionTypes.INCOME in category:
             continue
-        spent = metrics["spending_by_category"].get(category, 0)
-        percent_of_total = (spent / metrics["total_spending"]) * 100
+        percent_of_total = (spending / total_spending) * 100
         st.markdown(
-            create_category_card(category, spent, percent_of_total),
+            create_category_card(category, spending, percent_of_total),
             unsafe_allow_html=True,
         )
 
@@ -142,7 +154,6 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
 
     # Get transaction data
     df = budget_data.get_transactions(start_date, end_date)
-    st.dataframe(df)
 
     # date to datetime
     # TODO: move to the budget_data class
@@ -190,7 +201,18 @@ def budget_app(budget_data: BudgetData, planner: BudgetPlanner) -> None:
         )
     with right_col:
         # Display category cards
-        budget_progress(metrics, planner.categories)
+        transaction_group = st.selectbox(
+            "Pick transaction grouping", ["Category", "Subcategory"]
+        )
+        transaction_group_metrics = (
+            metrics["spending_by_category"]
+            if transaction_group == "Category"
+            else metrics["spending_by_subcategory"]
+        )
+        budget_progress(
+            transaction_group_metrics,
+            metrics["total_spending"],
+        )
 
 
 if __name__ == "__main__":

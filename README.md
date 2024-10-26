@@ -30,6 +30,8 @@ Can you give it some HTML styling and generate some fake data for the app.
     - Remove Category Budgets and convert the Progress charts to Category Actuals. Exclude income from the charts.
     - Make the trend a rolling period.
     - Fix the rolling period and make the rolling days configurable in the UI.
+    - Purchase breakdown, Order categories by highest spend.
+    - Purchase breakdown, ability to change from category to subcategory.
 
 - Add additinal data sources.
     - Add UP transaction data. (partially complete)
