@@ -1,8 +1,4 @@
 
-export SOURCE_DATABASE ?= POSTGRES
-export TARGET_DATABASE ?= DUCKDB
-export TABLES ?= HOCKEY
-
 ## Install Python requirements for running
 requirements:
 	uv add --upgrade -r requirements.txt
