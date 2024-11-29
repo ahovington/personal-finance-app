@@ -52,6 +52,14 @@ class BudgetData(Protocol):
         """Returns a list of the accounts available in the data source"""
         ...
 
+    def refresh_transactions(self) -> None:
+        """Refresh transactions data"""
+        ...
+
+    def refresh_accounts(self) -> None:
+        """Refresh accounts data"""
+        ...
+
     def _validate_transactions(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate transactions"""
         ...

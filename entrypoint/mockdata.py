@@ -57,7 +57,11 @@ class BudgetDataMock:
                     "id": self.fake.uuid4(),
                     "created_date": current_date.strftime("%Y-%m-%d"),
                     "description": f"{self.fake.company()} - {subcategory}",
-                    "type": (TransactionTypes.INCOME if category == "Income" else TransactionTypes.PURCHASE),
+                    "type": (
+                        TransactionTypes.INCOME
+                        if category == "Income"
+                        else TransactionTypes.PURCHASE
+                    ),
                     "category": category,
                     "subcategory": subcategory,
                     "amount": round(random.uniform(*amount_range), 2),
@@ -92,6 +96,14 @@ class BudgetDataMock:
 
     def get_accounts(self) -> list[str]:
         return ["Checking", "Credit Card"]
+
+    def refresh_transactions(self) -> None:
+        """Refresh transactions data"""
+        pass
+
+    def refresh_accounts(self) -> None:
+        """Refresh accounts data"""
+        pass
 
     def _validate_transactions(self, df):
         # validate transactions

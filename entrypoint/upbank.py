@@ -16,6 +16,7 @@ URL = "https://api.up.com.au/api/v1"
 
 # Maximum number of transactions upbank return per 'page'.
 PAGE_SIZE = 100
+HIST_DATA_LOAD_DAYS = 730
 INCOME_TYPES = [
     "Direct Credit",
     "Osko Payment Received",
@@ -91,11 +92,13 @@ class UpbankClient:
         while uri is not None:
             response = requests.get(uri, headers=self._headers(), params=params)
             data = response.json()
-            result.extend(data["data"])
             try:
+                result.extend(data["data"])
                 uri = data["links"]["next"]
             except KeyError:
                 break
+            except Exception:
+                raise Exception
         return result
 
     def ping(self):
@@ -119,7 +122,9 @@ class UpbankClient:
 
 
 class BudgetDataUp:
-    def __init__(self, api_client: UpbankClient, database_connection: str = "./db/db.duckdb"):
+    def __init__(
+        self, api_client: UpbankClient, database_connection: str = "./db/db.duckdb"
+    ):
         self.client = api_client
         self.conn = duckdb.connect(database=Path(database_connection), read_only=False)
 
@@ -132,11 +137,13 @@ class BudgetDataUp:
     def refresh_accounts(self):
         """Fetch the current balance of the account."""
         response = self.client.accounts()
+        if not response:
+            return
         with open(Path("./db/accounts.json"), "w", encoding="utf-8") as f:
             json.dump(response, f, ensure_ascii=False, indent=4)
         self.conn.sql(
             """
-            create table accounts as (
+            create or replace table accounts as (
                 select *
                 from read_json_auto('./db/accounts.json')
             )
@@ -147,8 +154,10 @@ class BudgetDataUp:
         """Download held transactions."""
         local_tz = datetime.datetime.now().astimezone().tzinfo
         now = datetime.datetime.now().replace(tzinfo=local_tz)
-        since = now - datetime.timedelta(days=365)
+        since = now - datetime.timedelta(days=HIST_DATA_LOAD_DAYS)
         response = self.client.transactions(since, status=TransactionStatus.SETTLED)
+        if not response:
+            return
         with open(Path("./db/transactions.json"), "w", encoding="utf-8") as f:
             json.dump(response, f, ensure_ascii=False, indent=4)
         self.conn.sql(
