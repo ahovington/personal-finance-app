@@ -97,6 +97,17 @@ class BudgetDataMock:
     def get_accounts(self) -> list[str]:
         return ["Checking", "Credit Card"]
 
+    def get_account_balances(self):
+        return pd.DataFrame(
+            {
+                "account_name": ["Transaction", "Transaction", "Saver", "Saver"],
+                "account_type": ["Transactional", "Transactional", "Saver", "Saver"],
+                "ownership_type": ["Individual", "Joint", "Individual", "Joint"],
+                "currency_code": ["AUD", "AUD", "AUD", "AUD"],
+                "balance": [154, 300, 4500, 200],
+            }
+        )
+
     def refresh_transactions(self) -> None:
         """Refresh transactions data"""
         pass

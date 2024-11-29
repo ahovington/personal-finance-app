@@ -103,16 +103,46 @@ def transaction_listing(df: pd.DataFrame) -> None:
     for _, tx in df.iterrows():
         st.markdown(
             f"""
-        <div style="padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between;">
-                <span>{tx['description']}</span>
-                <span style="color: #ff4b4b;">${tx['amount']:,.2f}</span>
+            <div style="padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>{tx['description']}</span>
+                    <span style="color: #ff4b4b;">${tx['amount']:,.2f}</span>
+                </div>
+                <div style="color: #666; font-size: 0.9rem;">
+                    {tx['date'].strftime('%B %d, %Y')} • {tx['category']} • {tx['account']}
+                </div>
             </div>
-            <div style="color: #666; font-size: 0.9rem;">
-                {tx['date'].strftime('%B %d, %Y')} • {tx['category']} • {tx['account']}
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def account_listing(df: pd.DataFrame) -> None:
+    st.subheader("📝 Account Balances")
+    st.markdown(
+        f"""
+            <div style="padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Total Savings</span>
+                    <span style="color: #2ca314">${df['balance'].sum():,.2f}</span>
+                </div>
             </div>
-        </div>
-        """,
+            """,
+        unsafe_allow_html=True,
+    )
+    for _, acc in df.iterrows():
+        st.markdown(
+            f"""
+            <div style="padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>{acc['account_name']}</span>
+                    <span style="color: #2ca314">${acc['balance']}</span>
+                </div>
+                <div style="color: #666; font-size: 0.9rem;">
+                    {acc['account_type']} • {acc['ownership_type']}
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
@@ -229,8 +259,9 @@ def actuals_profit_loss(budget_data: BudgetData, planner: BudgetPlanner) -> None
         )
 
 
-def actuals_balance_sheet() -> None:
-    pass
+def actuals_balance_sheet(budget_data: BudgetData) -> None:
+    with st.sidebar:
+        account_listing(budget_data.get_account_balances())
 
 
 def actuals(budget_data: BudgetData, planner: BudgetPlanner) -> None:
@@ -240,7 +271,7 @@ def actuals(budget_data: BudgetData, planner: BudgetPlanner) -> None:
         budget_data.refresh_transactions()
         budget_data.refresh_accounts()
     actuals_profit_loss(budget_data, planner)
-    actuals_balance_sheet()
+    actuals_balance_sheet(budget_data)
 
 
 if __name__ == "__main__":

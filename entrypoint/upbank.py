@@ -16,7 +16,7 @@ URL = "https://api.up.com.au/api/v1"
 
 # Maximum number of transactions upbank return per 'page'.
 PAGE_SIZE = 100
-HIST_DATA_LOAD_DAYS = 730
+HIST_DATA_LOAD_DAYS = 366
 INCOME_TYPES = [
     "Direct Credit",
     "Osko Payment Received",
@@ -310,6 +310,36 @@ class BudgetDataUp:
 
     def get_accounts(self):
         return ["UP", "2UP"]
+
+    def get_account_balances(self):
+        return self.conn.sql(
+            f"""
+                select
+                    attributes.displayName as account_name,
+                    attributes.accountType as account_type,
+                    attributes.ownershipType as ownership_type,
+                    attributes.balance.currencyCode as currency_code,
+                    attributes.balance.valueInBaseUnits / 100 as balance,
+                from accounts
+                where
+                    attributes.balance.valueInBaseUnits > 0
+                order by
+                    attributes.accountType desc,
+                    attributes.balance.valueInBaseUnits desc
+            """
+        ).df()
+
+    # {
+    #     "displayName": "Spending",
+    #     "accountType": "TRANSACTIONAL",
+    #     "ownershipType": "INDIVIDUAL",
+    #     "balance": {
+    #         "currencyCode": "AUD",
+    #         "value": "826.21",
+    #         "valueInBaseUnits": 82621,
+    #     },
+    #     "createdAt": "2020-02-17T19:16:10+11:00",
+    # }
 
     def _validate_transactions(self, df) -> None:
         # validate transactions

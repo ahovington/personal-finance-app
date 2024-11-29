@@ -52,6 +52,10 @@ class BudgetData(Protocol):
         """Returns a list of the accounts available in the data source"""
         ...
 
+    def get_account_balances(self) -> pd.DataFrame:
+        """Returns a list of accounts and their balances"""
+        ...
+
     def refresh_transactions(self) -> None:
         """Refresh transactions data"""
         ...
