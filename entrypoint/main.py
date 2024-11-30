@@ -1,8 +1,11 @@
 import os
 
-from budget_actuals import BudgetPlanner, actuals
-from mockdata import BudgetDataMock
-from upbank import BudgetDataUp, UpbankClient
+import streamlit as st
+
+from page_actuals import actuals
+from page_budget import budget
+from src_mockdata import BudgetDataMock
+from src_upbank import BudgetDataUp, UpbankClient
 
 DATABASE_CONNECTION = "./db/db.duckdb"
 UPBANK_TOKEN = os.getenv("UPBANK_TOKEN")
@@ -15,6 +18,13 @@ else:
     client = UpbankClient(UPBANK_TOKEN)
     generator = BudgetDataUp(client, DATABASE_CONNECTION)
 
+st.set_page_config(
+    page_title="Budget Application",
+    page_icon="💵",
+    layout="wide",
+    initial_sidebar_state="auto",
+)
 
-planner = BudgetPlanner()
-actuals(generator, planner)
+pages = {"Actuals": actuals, "Budget": budget}
+page = st.sidebar.selectbox("PAGES", ["Actuals", "Budget"])
+pages[page](generator)

@@ -329,18 +329,6 @@ class BudgetDataUp:
             """
         ).df()
 
-    # {
-    #     "displayName": "Spending",
-    #     "accountType": "TRANSACTIONAL",
-    #     "ownershipType": "INDIVIDUAL",
-    #     "balance": {
-    #         "currencyCode": "AUD",
-    #         "value": "826.21",
-    #         "valueInBaseUnits": 82621,
-    #     },
-    #     "createdAt": "2020-02-17T19:16:10+11:00",
-    # }
-
     def _validate_transactions(self, df) -> None:
         # validate transactions
         return TransactionSchema.parse_df(

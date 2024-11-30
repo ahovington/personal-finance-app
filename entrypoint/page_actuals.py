@@ -4,56 +4,48 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from config import BudgetData, TransactionTypes
-from mockdata import BudgetDataMock
-
-st.set_page_config(
-    page_title="Budget Application",
-    page_icon="💵",
-    layout="wide",
-    initial_sidebar_state="auto",
-)
+from src_mockdata import BudgetDataMock
 
 
-class BudgetPlanner:
-    def calculate_budget_metrics(self, df: pd.DataFrame) -> dict:
-        """Calculate key budget metrics from transaction data"""
-        total_income = df[df["type"] == TransactionTypes.INCOME]["amount"].sum()
-        total_spending = df[df["type"] == TransactionTypes.PURCHASE]["amount"].sum()
-        spending_by_category = (
-            df[df["type"] == TransactionTypes.PURCHASE]
-            .groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        spending_by_subcategory = (
-            df[df["type"] == TransactionTypes.PURCHASE]
-            .groupby(["category", "subcategory"])["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        spending_by_subcategory.index = spending_by_subcategory.index.map(
-            "{0[0]}: {0[1]}".format
-        )
-        income_by_category = (
-            df[df["type"] == TransactionTypes.INCOME]
-            .groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        income_by_subcategory = (
-            df[df["type"] == TransactionTypes.INCOME]
-            .groupby("subcategory")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        return {
-            "total_income": total_income,
-            "total_spending": total_spending,
-            "spending_by_category": spending_by_category,
-            "spending_by_subcategory": spending_by_subcategory,
-            "income_by_category": income_by_category,
-            "income_by_subcategory": income_by_subcategory,
-        }
+def calculate_budget_metrics(df: pd.DataFrame) -> dict:
+    """Calculate key budget metrics from transaction data"""
+    total_income = df[df["type"] == TransactionTypes.INCOME]["amount"].sum()
+    total_spending = df[df["type"] == TransactionTypes.PURCHASE]["amount"].sum()
+    spending_by_category = (
+        df[df["type"] == TransactionTypes.PURCHASE]
+        .groupby("category")["amount"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    spending_by_subcategory = (
+        df[df["type"] == TransactionTypes.PURCHASE]
+        .groupby(["category", "subcategory"])["amount"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    spending_by_subcategory.index = spending_by_subcategory.index.map(
+        "{0[0]}: {0[1]}".format
+    )
+    income_by_category = (
+        df[df["type"] == TransactionTypes.INCOME]
+        .groupby("category")["amount"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    income_by_subcategory = (
+        df[df["type"] == TransactionTypes.INCOME]
+        .groupby("subcategory")["amount"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    return {
+        "total_income": total_income,
+        "total_spending": total_spending,
+        "spending_by_category": spending_by_category,
+        "spending_by_subcategory": spending_by_subcategory,
+        "income_by_category": income_by_category,
+        "income_by_subcategory": income_by_subcategory,
+    }
 
 
 def create_category_card(category: str, spent: float, percent_of_total: float) -> None:
@@ -159,9 +151,7 @@ def category_breakdown(
         )
 
 
-def actuals_profit_loss(budget_data: BudgetData, planner: BudgetPlanner) -> None:
-    st.title("💰 Budget Planner: Actuals")
-
+def actuals_profit_loss(budget_data: BudgetData) -> None:
     ## Config for sidebar
     # Date range selection
     st.sidebar.header("Budget Filters")
@@ -193,7 +183,7 @@ def actuals_profit_loss(budget_data: BudgetData, planner: BudgetPlanner) -> None
     df["date"] = pd.to_datetime(df["created_date"], utc=True)
 
     # Calculate metrics
-    metrics = planner.calculate_budget_metrics(df)
+    metrics = calculate_budget_metrics(df)
     hero_metrics(metrics["total_income"], metrics["total_spending"])
 
     # Create two columns for the main content
@@ -264,13 +254,15 @@ def actuals_balance_sheet(budget_data: BudgetData) -> None:
         account_listing(budget_data.get_account_balances())
 
 
-def actuals(budget_data: BudgetData, planner: BudgetPlanner) -> None:
+def actuals(budget_data: BudgetData) -> None:
+    st.title("💰 Budget Planner: Actuals")
+
     refresh = st.sidebar.button("Refresh data")
     if refresh:
         st.write("Refreshing the Datas...")
         budget_data.refresh_transactions()
         budget_data.refresh_accounts()
-    actuals_profit_loss(budget_data, planner)
+    actuals_profit_loss(budget_data)
     actuals_balance_sheet(budget_data)
 
 
@@ -283,24 +275,3 @@ if __name__ == "__main__":
     # pass the category list as an input to the budget app
     planner = BudgetPlanner()
     actuals(generator, planner)
-
-
-# TODO: Save for the budget page
-# def budget_vs_actual(df: pd.DataFrame, categories: list[str]) -> dict[str:float]:
-#     # Budget vs Actual
-#     st.subheader("📊 Category Budgets")
-
-#     # Generate some sample budget limits
-#     budget_limits = {}
-#     for category in categories:
-#         actual_spending = df["spending_by_category"].get(category, 0)
-#         suggested_budget = actual_spending * 1.1  # 10% buffer
-#         budget_limits[category] = st.slider(
-#             f"{category}",
-#             0.0,
-#             suggested_budget * 2,
-#             suggested_budget,
-#             step=50.0,
-#             key=f"budget_{category}",
-#         )
-#     return budget_limits
