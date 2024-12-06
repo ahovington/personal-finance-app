@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Any
 
 import pandas as pd
 import plotly.express as px
@@ -151,33 +152,7 @@ def category_breakdown(
         )
 
 
-def actuals_profit_loss(budget_data: BudgetData) -> None:
-    ## Config for sidebar
-    # Date range selection
-    st.sidebar.header("Budget Filters")
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=365)
-    try:
-        start_date, end_date = st.sidebar.date_input(
-            "Select Date Range", value=(start_date, end_date)
-        )
-    except ValueError:
-        st.warning("Select start and end date from the date range in the sidebar.")
-
-    # Other transaction filters
-    account = st.sidebar.selectbox("Account", budget_data.get_accounts(), None)
-    excluded_categories = st.sidebar.multiselect(
-        "Exclude categories", budget_data.get_categories()
-    )
-    excluded_subcategories = st.sidebar.multiselect(
-        "Exclude subcategories", budget_data.get_subcategories()
-    )
-
-    # Get transaction data
-    df = budget_data.get_transactions(
-        start_date, end_date, account, excluded_categories, excluded_subcategories
-    )
-
+def actuals_profit_loss(df: pd.DataFrame) -> None:
     # date to datetime
     # TODO: move to the budget_data class
     df["date"] = pd.to_datetime(df["created_date"], utc=True)
@@ -249,9 +224,39 @@ def actuals_profit_loss(budget_data: BudgetData) -> None:
         )
 
 
-def actuals_balance_sheet(budget_data: BudgetData) -> None:
+def actuals_balance_sheet(df: pd.DataFrame) -> None:
     with st.sidebar:
-        account_listing(budget_data.get_account_balances())
+        account_listing(df)
+
+
+def get_filters(
+    accounts: list[str], categories: list[str], subcategories: list[str]
+) -> dict[str:Any]:
+    ## Config for sidebar
+    # Date range selection
+    st.sidebar.header("Budget Filters")
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)
+    try:
+        start_date, end_date = st.sidebar.date_input(
+            "Select Date Range", value=(start_date, end_date)
+        )
+    except ValueError:
+        st.warning("Select start and end date from the date range in the sidebar.")
+
+    # Other transaction filters
+    account = st.sidebar.selectbox("Account", accounts, None)
+    excluded_categories = st.sidebar.multiselect("Exclude categories", categories)
+    excluded_subcategories = st.sidebar.multiselect(
+        "Exclude subcategories", subcategories
+    )
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "account": account,
+        "excluded_categories": excluded_categories,
+        "excluded_subcategories": excluded_subcategories,
+    }
 
 
 def actuals(budget_data: BudgetData) -> None:
@@ -262,16 +267,18 @@ def actuals(budget_data: BudgetData) -> None:
         st.write("Refreshing the Datas...")
         budget_data.refresh_transactions()
         budget_data.refresh_accounts()
-    actuals_profit_loss(budget_data)
-    actuals_balance_sheet(budget_data)
+
+    filters = get_filters(
+        budget_data.get_accounts(),
+        budget_data.get_categories(),
+        budget_data.get_subcategories(),
+    )
+    # Get transaction data
+    actuals_profit_loss(budget_data.get_transactions(**filters))
+    actuals_balance_sheet(budget_data.get_account_balances())
 
 
 if __name__ == "__main__":
     # Generate sample transactions
     generator = BudgetDataMock()
-
-    # Initialize budget planner
-    # TODO: Remove budget planner as a class,
-    # pass the category list as an input to the budget app
-    planner = BudgetPlanner()
-    actuals(generator, planner)
+    actuals(generator)
