@@ -30,7 +30,7 @@ load-envs:
 
 .PHONY:run-app
 run-app:
-	uv run streamlit run entrypoint/main.py
+	uv run streamlit run entrypoint/app.py
 
 .PHONY: test
 test:

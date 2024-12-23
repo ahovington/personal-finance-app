@@ -4,6 +4,8 @@ from typing import Any
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+
+from common import get_filters
 from config import BudgetData, TransactionTypes
 from src_mockdata import BudgetDataMock
 
@@ -53,36 +55,6 @@ def budget_vs_actual(category_spending: dict[str:float]) -> dict[str:float]:
     return budget_limits
 
 
-def get_filters(
-    accounts: list[str], categories: list[str], subcategories: list[str]
-) -> dict[str:Any]:
-    ## Config for sidebar
-    # Date range selection
-    st.sidebar.header("Budget Filters")
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=365)
-    try:
-        start_date, end_date = st.sidebar.date_input(
-            "Select Date Range", value=(start_date, end_date)
-        )
-    except ValueError:
-        st.warning("Select start and end date from the date range in the sidebar.")
-
-    # Other transaction filters
-    account = st.sidebar.selectbox("Account", accounts, None)
-    excluded_categories = st.sidebar.multiselect("Exclude categories", categories)
-    excluded_subcategories = st.sidebar.multiselect(
-        "Exclude subcategories", subcategories
-    )
-    return {
-        "start_date": start_date,
-        "end_date": end_date,
-        "account": account,
-        "excluded_categories": excluded_categories,
-        "excluded_subcategories": excluded_subcategories,
-    }
-
-
 def budget(budget_data: BudgetData) -> None:
     st.title("💰 Budget Planner: Budget")
 
@@ -111,3 +83,9 @@ def budget(budget_data: BudgetData) -> None:
         )
     )
     st.write(set_budget)
+
+
+if __name__ == "__main__":
+    # Generate sample transactions
+    generator = BudgetDataMock()
+    budget(generator)

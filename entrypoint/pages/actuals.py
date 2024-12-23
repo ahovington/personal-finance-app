@@ -4,8 +4,10 @@ from typing import Any
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+
+from common import get_filters
 from config import BudgetData, TransactionTypes
-from src_mockdata import BudgetDataMock
+from sources.mockdata import BudgetDataMock
 
 
 def calculate_budget_metrics(df: pd.DataFrame) -> dict:
@@ -229,44 +231,8 @@ def actuals_balance_sheet(df: pd.DataFrame) -> None:
         account_listing(df)
 
 
-def get_filters(
-    accounts: list[str], categories: list[str], subcategories: list[str]
-) -> dict[str:Any]:
-    ## Config for sidebar
-    # Date range selection
-    st.sidebar.header("Budget Filters")
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=365)
-    try:
-        start_date, end_date = st.sidebar.date_input(
-            "Select Date Range", value=(start_date, end_date)
-        )
-    except ValueError:
-        st.warning("Select start and end date from the date range in the sidebar.")
-
-    # Other transaction filters
-    account = st.sidebar.selectbox("Account", accounts, None)
-    excluded_categories = st.sidebar.multiselect("Exclude categories", categories)
-    excluded_subcategories = st.sidebar.multiselect(
-        "Exclude subcategories", subcategories
-    )
-    return {
-        "start_date": start_date,
-        "end_date": end_date,
-        "account": account,
-        "excluded_categories": excluded_categories,
-        "excluded_subcategories": excluded_subcategories,
-    }
-
-
 def actuals(budget_data: BudgetData) -> None:
     st.title("💰 Budget Planner: Actuals")
-
-    refresh = st.sidebar.button("Refresh data")
-    if refresh:
-        st.write("Refreshing the Datas...")
-        budget_data.refresh_transactions()
-        budget_data.refresh_accounts()
 
     filters = get_filters(
         budget_data.get_accounts(),
